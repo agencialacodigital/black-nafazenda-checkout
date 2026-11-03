@@ -1,0 +1,46 @@
+@import '@fontsource-variable/montserrat';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+
+html, body, #root { min-height: 100%; }
+body {
+  @apply bg-ink font-sans text-white antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection { background: #6bc805; color: #06150a; }
+
+@layer components {
+  .eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-[0.28em] text-gold;
+  }
+  .btn-primary {
+    @apply relative inline-flex w-full items-center justify-center overflow-hidden text-center rounded-xl bg-farm px-6 py-4 text-[13px] font-extrabold uppercase tracking-[0.12em] text-[#06150a] transition duration-200;
+    @apply hover:bg-[#7ddb0c] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60;
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold;
+  }
+  .btn-gold {
+    @apply relative inline-flex w-full items-center justify-center overflow-hidden text-center rounded-xl bg-gold px-6 py-4 text-[13px] font-extrabold uppercase tracking-[0.12em] text-[#14100a] transition duration-200;
+    @apply hover:bg-gold-soft active:scale-[0.99];
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-farm;
+  }
+  .sheen {
+    @apply pointer-events-none absolute inset-y-0 left-0 w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-white/30 to-transparent;
+  }
+  .link-quiet {
+    @apply text-[13px] font-semibold text-mist underline decoration-farm-line decoration-1 underline-offset-4 transition hover:text-white hover:decoration-farm;
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold;
+  }
+  .field {
+    @apply w-full rounded-xl border border-ink-600 bg-ink-900 px-4 py-4 text-[15px] font-medium text-white placeholder:text-mist-dim transition;
+    @apply focus:border-farm focus:outline-none focus:ring-2 focus:ring-farm/30;
+  }
+  .field[aria-invalid='true'] { @apply border-[#d9534f] focus:border-[#d9534f] focus:ring-[#d9534f]/25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
