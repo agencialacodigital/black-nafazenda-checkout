@@ -12,6 +12,7 @@ const stepIndex: Record<Step, number> = { email: 0, offer: 1, review: 1 }
 
 export default function App() {
   const [step, setStep] = useState<Step>('email')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [offer, setOffer] = useState<PublicOffer | null>(null)
   const [busy, setBusy] = useState(false)
@@ -28,13 +29,14 @@ export default function App() {
     goTo('email')
   }
 
-  async function submitEmail(value: string) {
+  async function submitEmail(value: string, nome: string) {
     setBusy(true)
     setError(null)
     const r = await lookup(value)
     setBusy(false)
     if (!r.ok) return setError(r.message)
     setEmail(value)
+    setName(nome)
     if (r.data.status === 'offer') {
       setOffer(r.data.offer)
       goTo('offer')
@@ -66,7 +68,7 @@ export default function App() {
             ))}
           </ol>
 
-          {step === 'email' && <EmailStep key="email" initialEmail={email} busy={busy} error={error} onSubmit={submitEmail} />}
+          {step === 'email' && <EmailStep key="email" initialName={name} initialEmail={email} busy={busy} error={error} onSubmit={submitEmail} />}
           {step === 'offer' && offer && <OfferResult key="offer" offer={offer} onAnother={reset} />}
           {step === 'review' && <ReviewResult key="review" onAnother={reset} />}
         </div>

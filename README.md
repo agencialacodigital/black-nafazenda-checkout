@@ -7,6 +7,12 @@ A pessoa digita o e-mail da compra e é levada direto ao checkout certo da Lastl
 - **Base:** um índice estático (`api/_data/index.generated.ts`) com o **HMAC** de cada e-mail e uma letra (`X` = xR Pec, `A` = aluno geral, `R` = análise). Nenhum e-mail, CPF ou nome legível vai para o GitHub. E-mail fora do índice = Público geral.
 - Preços, parcelas e links de checkout ficam só no servidor (`api/_lib/config.ts`) e não existem no JavaScript do navegador (`npm run check:bundle` confere).
 
+## Captura de nome/e-mail e Pixel
+
+- O formulário tem **nome** e **e-mail** (`name="name"` e `name="email"`). O nome não é enviado para a nossa API; só o script de captura (Supabase) o recebe quando a pessoa envia o formulário.
+- O script de captura e o Meta Pixel (`974617600838066`, evento `PageView`) estão em `index.html`. Se trocar de script/pixel, é lá.
+- Como esses scripts precisam rodar, o `vercel.json` libera `'unsafe-inline'` em `script-src` e os domínios `connect.facebook.net`, `www.facebook.com` e `omnpvrixdqtsdzmlrclj.supabase.co`. Se adicionar outra ferramenta (TikTok, GA…), inclua o domínio dela na CSP.
+
 ## Regras
 
 | E-mail na base | Resultado |

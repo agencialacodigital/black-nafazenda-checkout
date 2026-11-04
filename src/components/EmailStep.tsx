@@ -4,16 +4,22 @@ import { looksLikeEmail } from '../lib/format'
 import { PRIVACY_URL } from '../lib/format'
 
 interface Props {
+  initialName?: string
   initialEmail?: string
   busy: boolean
   error: string | null
-  onSubmit: (email: string) => void
+  onSubmit: (email: string, name: string) => void
 }
 
-export function EmailStep({ initialEmail = '', busy, error, onSubmit }: Props) {
+const validName = (v: string) => v.trim().length >= 2
+
+export function EmailStep({ initialName = '', initialEmail = '', busy, error, onSubmit }: Props) {
+  const [name, setName] = useState(initialName)
   const [email, setEmail] = useState(initialEmail)
   const [touched, setTouched] = useState(false)
+  const [nameTouched, setNameTouched] = useState(false)
   const invalid = touched && !looksLikeEmail(email)
+  const nameInvalid = nameTouched && !validName(name)
   const message = invalid ? 'Digite um e-mail válido, por exemplo nome@email.com.' : error
 
   return (
@@ -22,7 +28,8 @@ export function EmailStep({ initialEmail = '', busy, error, onSubmit }: Props) {
       onSubmit={(e) => {
         e.preventDefault()
         setTouched(true)
-        if (looksLikeEmail(email) && !busy) onSubmit(email.trim())
+        setNameTouched(true)
+        if (validName(name) && looksLikeEmail(email) && !busy) onSubmit(email.trim(), name.trim())
       }}
       className="animate-rise"
     >
@@ -30,10 +37,33 @@ export function EmailStep({ initialEmail = '', busy, error, onSubmit }: Props) {
         Sua condição especial de <span className="text-farm">Black Friday</span> está aqui!
       </h1>
       <p className="mt-4 text-[15px] font-medium leading-relaxed text-mist">
-        A NaFazenda preparou condições especiais para você fazer parte do xR Pec. Informe seu e-mail e descubra a oferta disponível para você.
+        A NaFazenda preparou condições especiais para você fazer parte do xR Pec. Informe seu nome e e-mail e descubra a oferta disponível para você.
       </p>
 
       <div className="mt-8">
+        <label htmlFor="nome" className="mb-2 block text-[12px] font-bold uppercase tracking-[0.16em] text-white">
+          Seu nome
+        </label>
+        <input
+          id="nome"
+          name="name"
+          type="text"
+          autoComplete="name"
+          autoCapitalize="words"
+          maxLength={120}
+          placeholder="Digite seu nome"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => name && setNameTouched(true)}
+          aria-invalid={nameInvalid}
+          aria-describedby="nome-msg"
+          disabled={busy}
+          className="field"
+        />
+        <FieldError id="nome-msg">{nameInvalid ? 'Digite seu nome para continuar.' : ''}</FieldError>
+      </div>
+
+      <div className="mt-3">
         <label htmlFor="email" className="mb-2 block text-[12px] font-bold uppercase tracking-[0.16em] text-white">
           Seu melhor e-mail
         </label>
