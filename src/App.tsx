@@ -44,7 +44,7 @@ export default function App() {
   }
 
   const current = stepIndex[step]
-  const gold = step === 'offer' && offer?.variant === 'xr'
+  const gold = step === 'offer' && offer?.variant === 'top'
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden">

@@ -29,7 +29,7 @@ interface OfferProps {
 }
 
 export function OfferResult({ offer, onAnother }: OfferProps) {
-  const xr = offer.variant === 'xr'
+  const gold = offer.variant === 'top'
   const href = safeCheckout(offer.checkoutUrl)
   const [left, setLeft] = useState(REDIRECT_AFTER)
   const [cancelled, setCancelled] = useState(false)
@@ -47,7 +47,7 @@ export function OfferResult({ offer, onAnother }: OfferProps) {
   return (
     <section className="animate-rise" aria-live="polite">
       <div className="flex flex-wrap items-center gap-3">
-        <span className={`inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] ${xr ? 'text-gold' : 'text-farm'}`}>
+        <span className={`inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] ${gold ? 'text-gold' : 'text-farm'}`}>
           <Check className="h-4 w-4" /> Condição encontrada
         </span>
         {offer.badge && (
@@ -57,22 +57,22 @@ export function OfferResult({ offer, onAnother }: OfferProps) {
         )}
       </div>
 
-      <h1 className={`mt-4 text-[24px] font-extrabold uppercase leading-[1.15] tracking-tight sm:text-[32px] ${xr ? 'text-gold-soft' : ''}`}>{offer.headline}</h1>
+      <h1 className={`mt-4 text-[24px] font-extrabold uppercase leading-[1.15] tracking-tight sm:text-[32px] ${gold ? 'text-gold-soft' : ''}`}>{offer.headline}</h1>
       <p className="mt-4 text-[15px] font-medium leading-relaxed text-mist">{offer.text}</p>
 
-      <div className={`mt-7 rounded-2xl border p-6 ${xr ? 'border-gold/50 bg-gold/[0.05]' : 'border-farm-line bg-farm-deep/40'}`}>
+      <div className={`mt-7 rounded-2xl border p-6 ${gold ? 'border-gold/50 bg-gold/[0.05]' : 'border-farm-line bg-farm-deep/40'}`}>
         <p className="text-[13px] font-semibold text-mist-dim">
           De <span className="line-through decoration-mist-dim/70">{offer.listPrice}</span> por
         </p>
         <p className="mt-1 text-[40px] font-extrabold leading-none tracking-tight sm:text-[48px]">{offer.price}</p>
         <p className="mt-3 text-[15px] font-semibold text-mist">
-          ou <span className={xr ? 'text-gold-soft' : 'text-farm-bright'}>{offer.installments}</span>
+          ou <span className={gold ? 'text-gold-soft' : 'text-farm-bright'}>{offer.installments}</span>
         </p>
       </div>
 
       {href ? (
         <>
-          <a href={href} rel="noopener noreferrer" className={`${xr ? 'btn-gold' : 'btn-primary'} mt-5`}>
+          <a href={href} rel="noopener noreferrer" className={`${gold ? 'btn-gold' : 'btn-primary'} mt-5`}>
             {offer.cta}
             <span aria-hidden="true" className="sheen animate-sheen" />
           </a>

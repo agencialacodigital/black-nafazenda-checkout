@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { emailKey } from '../api/_lib/identity.js'
-import { classify, toIndexCode, type BuyerRecord } from '../api/_lib/classify.js'
+import { type BuyerRecord } from '../api/_lib/classify.js'
 import { OFFERS } from '../api/_lib/config.js'
+import { buildIndex, parseBlack2025Csv } from '../api/_lib/indexing.js'
 import { resetRateLimitForTests } from '../api/_lib/http.js'
 import { setIndexForTests } from '../api/_lib/index.js'
 import lookup from '../api/lookup.js'
@@ -19,19 +19,14 @@ const FIXTURE: BuyerRecord[] = [
   { id: 't6a', emails: ['dup.sem.flag@example.com'], cpfs: ['12345678909'], segmento: 'ALUNO_GERAL', consulta_email: 'APTO_APOS_VERIFICACAO_EMAIL' },
   { id: 't6b', emails: ['dup.sem.flag@example.com'], cpfs: ['12345678909'], segmento: 'XR_PEC', consulta_email: 'APTO_APOS_VERIFICACAO_EMAIL' },
   { id: 't7', emails: ['dois.cpfs@example.com'], cpfs: ['52998224725', '11144477735'], segmento: 'XR_PEC', consulta_email: 'APTO_APOS_VERIFICACAO_EMAIL' },
+  // comprador da Black Friday 2025 que também está na base como aluno
+  { id: 't8', emails: ['bf2025.aluno@example.com'], cpfs: ['39053344705'], segmento: 'ALUNO_GERAL', consulta_email: 'APTO_APOS_VERIFICACAO_EMAIL' },
 ]
 
-/** Mesmo procedimento do `npm run data:build`, em memória. */
-function buildIndex(records: BuyerRecord[]) {
-  const byEmail = new Map<string, BuyerRecord[]>()
-  for (const r of records) for (const e of r.emails) byEmail.set(e, [...(byEmail.get(e) ?? []), r])
-  const idx: Record<string, 'X' | 'A' | 'R'> = {}
-  for (const [email, recs] of byEmail) {
-    const c = toIndexCode(classify(recs))
-    if (c) idx[emailKey(email)] = c
-  }
-  return idx
-}
+/** Compradores pagos da Black Friday 2025 (fictícios): um na base, um fora, um em revisão. */
+const BLACK_2025 = ['bf2025.aluno@example.com', 'Bf2025.Fora@Example.com ', 'revisao@example.com']
+
+const buildTestIndex = () => buildIndex(FIXTURE, BLACK_2025, process.env.EMAIL_HASH_SECRET).index
 
 async function call(body: unknown, opts: { method?: string; ip?: string; origin?: string } = {}) {
   const out: { status: number; body: any } = { status: 0, body: null }
@@ -56,7 +51,7 @@ async function call(body: unknown, opts: { method?: string; ip?: string; origin?
 }
 
 beforeEach(() => {
-  setIndexForTests(buildIndex(FIXTURE))
+  setIndexForTests(buildTestIndex())
   resetRateLimitForTests()
 })
 
@@ -76,18 +71,54 @@ describe('consulta direta por e-mail', () => {
     expect(r.body.offer.installments).toBe('12x de R$ 313,86')
   })
 
-  it('3. xR Pec / Elite / Advisor (segmento XR_PEC) → Aluno xR Pec com 50%', async () => {
-    const r = await call({ email: 'xr.pec@example.com' })
-    expect(r.body.offer.checkoutUrl).toBe(OFFERS.ALUNO_XR_PEC.checkoutUrl)
+  it('3. comprador da Black Friday 2025 → 50% de desconto', async () => {
+    const r = await call({ email: 'bf2025.aluno@example.com' })
+    expect(r.body.offer.checkoutUrl).toBe(OFFERS.ALUNO_BLACK_2025.checkoutUrl)
     expect(r.body.offer.price).toBe('R$ 1.973,50')
+    expect(r.body.offer.installments).toBe('12x de R$ 210,16')
     expect(r.body.offer.badge).toBe('50% DE DESCONTO')
+    expect(r.body.offer.text).toMatch(/Black Friday NaFazenda do ano passado/)
   })
 
-  it('4. prioridade xR Pec > Aluno geral > Público geral; segundo e-mail do mesmo registro também vale', async () => {
+  it('3b. comprador da Black Friday 2025 que não está na base de alunos também recebe os 50% (e-mail normalizado)', async () => {
+    const r = await call({ email: 'bf2025.fora@example.com' })
+    expect(r.body.offer.checkoutUrl).toBe(OFFERS.ALUNO_BLACK_2025.checkoutUrl)
+  })
+
+  it('3c. aluno xR Pec (segmento XR_PEC) também tem os 50%, com o texto de xR Pec', async () => {
+    for (const email of ['xr.pec@example.com', 'xr.pec.alt@example.com']) {
+      const r = await call({ email })
+      expect(r.body.offer.checkoutUrl).toBe(OFFERS.ALUNO_XR_PEC.checkoutUrl)
+      expect(r.body.offer.price).toBe('R$ 1.973,50')
+      expect(r.body.offer.badge).toBe('50% DE DESCONTO')
+      expect(r.body.offer.text).toMatch(/Por já fazer parte do xR Pec/)
+    }
+  })
+
+  it('3d. quem é xR Pec e também comprou a Black Friday 2025 continua com os 50% (uma vez só)', async () => {
+    const { index, stats } = buildIndex(FIXTURE, [...BLACK_2025, 'xr.pec@example.com'], process.env.EMAIL_HASH_SECRET)
+    setIndexForTests(index)
+    expect(stats.black2025.alsoXrPec).toBe(1)
+    const r = await call({ email: 'xr.pec@example.com' })
+    expect(r.body.offer.price).toBe('R$ 1.973,50')
+    expect(OFFERS.ALUNO_XR_PEC.checkoutUrl).toBe(OFFERS.ALUNO_BLACK_2025.checkoutUrl)
+    expect(OFFERS.ALUNO_XR_PEC.price).toBe(OFFERS.ALUNO_BLACK_2025.price)
+  })
+
+  it('4. prioridade: 50% (xR Pec / Black Friday 2025) > Aluno geral > Público geral', async () => {
     expect(OFFERS.ALUNO_XR_PEC.priority).toBeGreaterThan(OFFERS.ALUNO_GERAL.priority)
+    expect(OFFERS.ALUNO_BLACK_2025.priority).toBeGreaterThan(OFFERS.ALUNO_GERAL.priority)
     expect(OFFERS.ALUNO_GERAL.priority).toBeGreaterThan(OFFERS.PUBLICO_GERAL.priority)
-    const r = await call({ email: 'xr.pec.alt@example.com' })
-    expect(r.body.offer.checkoutUrl).toBe(OFFERS.ALUNO_XR_PEC.checkoutUrl)
+  })
+
+  it('4b. comprador da Black Friday 2025 que está em revisão na base vai para conferência (não ganha 50% automático)', async () => {
+    const r = await call({ email: 'revisao@example.com' })
+    expect(r.body.status).toBe('review')
+  })
+
+  it('4c. leitura do CSV: só linhas pagas, e-mail limpo, aceita BOM e CRLF', () => {
+    const csv = '\uFEFFNome;E-mail;Produto;Status\r\nA;a@x.com;BF;Paga\r\nB;b@x.com;BF;Reembolsada\r\nC; C@X.com ;BF;paga\r\n'
+    expect(parseBlack2025Csv(csv)).toEqual(['a@x.com', 'C@X.com'])
   })
 
   it('5. registro sem CPF continua válido', async () => {
@@ -96,8 +127,8 @@ describe('consulta direta por e-mail', () => {
   })
 
   it('6. maiúsculas são normalizadas', async () => {
-    const r = await call({ email: 'XR.Pec@Example.COM' })
-    expect(r.body.offer.checkoutUrl).toBe(OFFERS.ALUNO_XR_PEC.checkoutUrl)
+    const r = await call({ email: 'BF2025.Aluno@Example.COM' })
+    expect(r.body.offer.checkoutUrl).toBe(OFFERS.ALUNO_BLACK_2025.checkoutUrl)
   })
 
   it('7. espaços nas pontas são removidos; espaço no meio é inválido', async () => {
@@ -129,23 +160,23 @@ describe('segurança', () => {
   it('10. manipulação de checkout: campos extras enviados pelo cliente são ignorados', async () => {
     const r = await call({
       email: 'ninguem@example.com',
-      tier: 'ALUNO_XR_PEC',
+      tier: 'ALUNO_BLACK_2025',
       segmento: 'XR_PEC',
-      checkoutUrl: OFFERS.ALUNO_XR_PEC.checkoutUrl,
-      offer: OFFERS.ALUNO_XR_PEC,
+      checkoutUrl: OFFERS.ALUNO_BLACK_2025.checkoutUrl,
+      offer: OFFERS.ALUNO_BLACK_2025,
     })
     expect(r.body.offer.checkoutUrl).toBe(OFFERS.PUBLICO_GERAL.checkoutUrl)
   })
 
   it('11. a resposta não vaza regra interna, segmento, id ou prioridade', async () => {
-    const r = await call({ email: 'xr.pec@example.com' })
-    expect(JSON.stringify(r.body)).not.toMatch(/priority|tier|segmento|XR_PEC|ALUNO_GERAL|t2|REVISAO/)
+    const r = await call({ email: 'bf2025.aluno@example.com' })
+    expect(JSON.stringify(r.body)).not.toMatch(/priority|tier|segmento|XR_PEC|ALUNO_GERAL|ALUNO_BLACK|\"t8\"|REVISAO/)
   })
 
   it('12. o índice publicado não contém e-mails nem CPFs legíveis', () => {
-    const idx = JSON.stringify(buildIndex(FIXTURE))
+    const idx = JSON.stringify(buildTestIndex())
     expect(idx).not.toMatch(/example\.com|@|52998224725/)
-    for (const k of Object.keys(buildIndex(FIXTURE))) expect(k).toMatch(/^[0-9a-f]{32}$/)
+    for (const k of Object.keys(buildTestIndex())) expect(k).toMatch(/^[0-9a-f]{32}$/)
   })
 
   it('13. sem EMAIL_HASH_SECRET a API falha de forma genérica (sem detalhe técnico)', async () => {

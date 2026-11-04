@@ -17,7 +17,8 @@ export type Classification = { kind: 'offer'; offer: Offer } | { kind: 'review';
  *  2. Mais de um registro     → revisão (duplicidade / possível conflito de e-mail ou CPF)
  *  3. Marcado p/ revisão ou sem flag de elegibilidade → revisão
  *  4. Mais de um CPF ou segmento desconhecido → revisão
- *  5. XR_PEC → Aluno xR Pec; ALUNO_GERAL → Aluno geral
+ *  5. XR_PEC → Aluno xR Pec (50%); ALUNO_GERAL → Aluno geral
+ * Quem comprou na Black Friday 2025 também recebe os 50%: isso é aplicado depois, em indexing.ts, a partir da planilha.
  * Em qualquer dúvida de identidade nunca concedemos condição superior automaticamente.
  */
 export function classify(records: BuyerRecord[]): Classification {
@@ -34,6 +35,7 @@ export function classify(records: BuyerRecord[]): Classification {
 export function toIndexCode(c: Classification): IndexCode | null {
   if (c.kind === 'review') return 'R'
   if (c.offer.tier === 'ALUNO_XR_PEC') return 'X'
+  if (c.offer.tier === 'ALUNO_BLACK_2025') return 'B'
   if (c.offer.tier === 'ALUNO_GERAL') return 'A'
   return null
 }
@@ -42,6 +44,7 @@ export function toIndexCode(c: Classification): IndexCode | null {
 export function decide(code: IndexCode | undefined): Classification {
   if (code === 'R') return { kind: 'review', reason: 'index_review' }
   if (code === 'X') return { kind: 'offer', offer: OFFERS.ALUNO_XR_PEC }
+  if (code === 'B') return { kind: 'offer', offer: OFFERS.ALUNO_BLACK_2025 }
   if (code === 'A') return { kind: 'offer', offer: OFFERS.ALUNO_GERAL }
   return { kind: 'offer', offer: OFFERS.PUBLICO_GERAL }
 }
@@ -49,5 +52,5 @@ export function decide(code: IndexCode | undefined): Classification {
 /** O que o cliente recebe: nunca expõe regra, segmento ou id interno. */
 export function publicOffer(o: Offer) {
   const { priority: _p, tier: _t, ...rest } = o
-  return { ...rest, variant: o.tier === 'ALUNO_XR_PEC' ? 'xr' : o.tier === 'ALUNO_GERAL' ? 'aluno' : 'geral' }
+  return { ...rest, variant: o.tier === 'ALUNO_BLACK_2025' || o.tier === 'ALUNO_XR_PEC' ? 'top' : o.tier === 'ALUNO_GERAL' ? 'aluno' : 'geral' }
 }

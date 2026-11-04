@@ -1,5 +1,5 @@
 export interface PublicOffer {
-  variant: 'geral' | 'aluno' | 'xr'
+  variant: 'geral' | 'aluno' | 'top'
   headline: string
   text: string
   cta: string
