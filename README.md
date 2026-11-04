@@ -1,6 +1,6 @@
 # Black Friday xR Pec — consulta de condição (NaFazenda)
 
-A pessoa digita o e-mail da compra e é levada direto ao checkout certo da Lastlink: **Público geral**, **Aluno geral** ou **Aluno xR Pec (50%)**. Sem código por e-mail, sem banco de dados, sem serviços extras.
+A pessoa digita o e-mail da compra e é levada direto ao checkout certo da Lastlink: **Público geral**, **Aluno geral** ou **50% (aluno xR Pec ou comprador da Black Friday 2025)**. Sem código por e-mail, sem banco de dados, sem serviços extras.
 
 - **Front-end:** React + TypeScript + Tailwind (Vite), Montserrat embutida, logo oficial em SVG.
 - **Back-end:** uma função serverless da Vercel (`api/lookup.ts`).
@@ -15,14 +15,16 @@ A pessoa digita o e-mail da compra e é levada direto ao checkout certo da Lastl
 
 ## Regras
 
-| E-mail na base | Resultado |
+| E-mail | Resultado |
 |---|---|
-| Não está | Público geral — R$ 3.447,00 / 12x R$ 367,07 |
-| Segmento `ALUNO_GERAL` apto | Aluno geral — R$ 2.947,00 / 12x R$ 313,86 |
-| Segmento `XR_PEC` apto | Aluno xR Pec — R$ 1.973,50 / 12x R$ 210,16 (50%) |
+| Aluno **xR Pec** (segmento `XR_PEC`) **ou** comprador da **Black Friday 2025** (planilha, status "Paga") | **50% — R$ 1.973,50 / 12x R$ 210,16** (mesmo checkout; o texto muda: "Por já fazer parte do xR Pec…" ou "Por ter participado da Black Friday NaFazenda do ano passado…") |
+| Está na base de alunos (segmento `ALUNO_GERAL`) | Aluno geral — R$ 2.947,00 / 12x R$ 313,86 |
+| Não está em nenhuma das duas | Público geral — R$ 3.447,00 / 12x R$ 367,07 |
 | Em mais de um registro, marcado `REVISAO_MANUAL`, mais de um CPF ou segmento desconhecido | Tela de conferência (nenhuma condição automática) |
 
-Prioridade: Aluno xR Pec > Aluno geral > Público geral. A classificação roda na hora de gerar o índice (`api/_lib/classify.ts`). Com a base atual: 4.386 e-mails em Aluno geral, 68 em xR Pec e 14 em conferência.
+Prioridade: 50% > Aluno geral > Público geral. Comprador da Black Friday 2025 que esteja em "conferência" na base **continua em conferência** (para dar os 50% mesmo assim, troque `BLACK_2025_OVERRIDES_REVIEW` para `true` em `api/_lib/config.ts` e gere o índice de novo). A regra está em `api/_lib/indexing.ts` e `api/_lib/classify.ts`.
+
+Com os arquivos atuais: 125 e-mails com 50% (68 xR Pec + 57 só da Black Friday 2025; 6 compraram os dois), 4.329 em Aluno geral, 14 em conferência (2 deles compraram a Black Friday 2025).
 
 ## Publicar: GitHub → Vercel
 
@@ -47,9 +49,9 @@ Prioridade: Aluno xR Pec > Aluno geral > Público geral. A classificação roda 
 
 ## Atualizar a base
 
-1. Substitua o arquivo em `data-source/` (fica só no seu computador, ignorado pelo Git) mantendo o formato: `records[]` com `id`, `emails[]`, `cpfs[]`, `segmento`, `consulta_email`.
+1. Coloque os arquivos em `data-source/` (fica só no seu computador, ignorado pelo Git): a base JSON (`records[]` com `id`, `emails[]`, `cpfs[]`, `segmento`, `consulta_email`) e o CSV de compradores da Black Friday 2025 (separador `;`, com as colunas `E-mail` e `Status`; só entram as linhas "Paga").
 2. `npm run data:validate` confere estrutura, ids repetidos, e-mails/CPFs inválidos, segmentos desconhecidos, e-mails duplicados e mostra a contagem por categoria (sem imprimir dados pessoais).
-3. `npm run data:build` regenera o índice (usa o `EMAIL_HASH_SECRET` do `.env`, o mesmo da Vercel) e mostra a contagem final.
+3. `npm run data:build` regenera o índice (usa o `EMAIL_HASH_SECRET` do `.env`, o mesmo da Vercel) e mostra as contagens, incluindo quantos compradores da Black Friday 2025 receberam os 50%.
 4. Compare as contagens com a versão anterior, faça `git add api/_data && git commit && git push`. A Vercel publica sozinha.
 5. **Rollback:** na Vercel, *Deployments > deploy anterior > Promote to Production*, ou `git revert` do commit.
 
@@ -63,7 +65,7 @@ npm run dev:api     # API em :3001 (lê o .env)
 npm run dev         # site em :5173
 ```
 
-`npm run verify` roda tipos, testes (15, com dados fictícios), build e a checagem do bundle.
+`npm run verify` roda tipos, testes (20, com dados fictícios), build e a checagem do bundle.
 
 ## Limites que você precisa conhecer
 
